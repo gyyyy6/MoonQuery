@@ -30,8 +30,35 @@ let usage_text : String =
   #|  -h, --help           Print this message
   #|
   #|Examples:
-  #|  moon run src/main -- "select * where age > 30 limit 2"
-  #|  moon run src/main -- "select name, city" "[{\"name\":\"Bob\",\"age\":35}]"
+  #|
+  #|  # 1) Scan the built-in demo dataset
+  #|  moon run src/main -- "select *"
+  #|
+  #|  # 2) Filter + limit; records without a numeric age are dropped
+  #|  moon run src/main -- "select name, age where age > 30 limit 2"
+  #|  #   -> [{"name":"Bob","age":35},{"name":"Carol","age":42}]
+  #|
+  #|  # 3) Query an inline JSON array
+  #|  moon run src/main -- "select name, city" "[{"name":"Bob","age":35,"city":"Shanghai"}]"
+  #|  #   -> [{"name":"Bob","city":"Shanghai"}]
+  #|
+  #|  # 4) Flags instead of positional arguments
+  #|  moon run src/main -- --query "select * limit 1" --json "[{"a":1,"b":2}]"
+  #|  #   -> [{"a":1,"b":2}]
+  #|
+  #|  # 5) JSON omitted -> the built-in demo dataset is used
+  #|  moon run src/main -- "select name where age > 40"
+  #|  #   -> [{"name":"Carol"}]
+  #|
+  #|  # 6) Errors never panic, they come back as a JSON document
+  #|  moon run src/main -- "select where"
+  #|  #   -> {"error":"expected field name"}
+  #|
+  #|  # 7) Projection: * keeps every field of each record
+  #|  moon run src/main -- "select * limit 1"
+  #|
+  #|  # 8) Help
+  #|  moon run src/main -- --help
 
 ///|
 /// Split the raw arguments (program name included) into `(query, json)`.
