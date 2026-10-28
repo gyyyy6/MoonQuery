@@ -97,3 +97,20 @@ test "run_query rejects a document that is not an array" {
   let result = @evaluator.run_query("{\"a\": 1}", "select *")
   assert_eq(result, "{\"error\":\"expected a JSON array of records\"}")
 }
+
+///|
+test "run_query handles a non-array document and a zero limit" {
+  // A top-level document that is not an array is reported, never panicked on.
+  assert_eq(
+    @evaluator.run_query("\"just a string\"", "select *"),
+    "{\"error\":\"expected a JSON array of records\"}",
+  )
+  assert_eq(
+    @evaluator.run_query("123", "select *"),
+    "{\"error\":\"expected a JSON array of records\"}",
+  )
+  // `limit 0` yields an empty result instead of raising.
+  assert_eq(@evaluator.run_query(user_data, "select name limit 0"), "[]")
+  // An empty input array stays empty, whatever the query asks for.
+  assert_eq(@evaluator.run_query("[]", "select * limit 5"), "[]")
+}
