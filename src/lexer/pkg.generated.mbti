@@ -1,0 +1,27 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "username/MoonQuery/lexer"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn tokenize(String) -> Array[Token]
+
+// Errors
+
+// Types and methods
+pub(all) enum Token {
+  Select
+  Where
+  Limit
+  Identifier(String)
+  Number(Double)
+  GT
+  Comma
+  EOF
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits

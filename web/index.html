@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MoonQuery · Web Playground</title>
+<style>
+  :root {
+    --bg: #05060c;
+    --panel: rgba(255, 255, 255, 0.035);
+    --panel-strong: rgba(255, 255, 255, 0.06);
+    --line: rgba(255, 255, 255, 0.09);
+    --text: #e8ecf7;
+    --muted: #8b93ad;
+    --violet: #7c5cff;
+    --cyan: #22d3ee;
+    --green: #34d399;
+    --red: #ff5d73;
+    --mono: ui-monospace, "JetBrains Mono", "Cascadia Code", Consolas, "SFMono-Regular", monospace;
+    --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { height: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  /* ---------- ambient glow ---------- */
+  .glow {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(90px);
+    opacity: 0.5;
+    pointer-events: none;
+    z-index: 0;
+    animation: float 18s ease-in-out infinite;
+  }
+  .glow.a { width: 520px; height: 520px; top: -180px; left: -120px; background: radial-gradient(circle, #7c5cff, transparent 68%); }
+  .glow.b { width: 460px; height: 460px; top: 10%; right: -160px; background: radial-gradient(circle, #22d3ee, transparent 68%); animation-delay: -6s; }
+  .glow.c { width: 420px; height: 420px; bottom: -200px; left: 35%; background: radial-gradient(circle, #f472b6, transparent 70%); animation-delay: -12s; opacity: 0.35; }
+  @keyframes float {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+    50%      { transform: translate3d(28px, -34px, 0) scale(1.09); }
+  }
+
+  .grid-lines {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0.35;
+    background-image: linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+    background-size: 46px 46px;
+    mask-image: radial-gradient(ellipse 90% 70% at 50% 30%, #000 30%, transparent 100%);
+    -webkit-mask-image: radial-gradient(ellipse 90% 70% at 50% 30%, #000 30%, transparent 100%);
+  }
+
+  /* ---------- layout ---------- */
+  .shell { position: relative; z-index: 1; max-width: 1240px; margin: 0 auto; padding: 42px 24px 64px; }
+
+  header.hero { text-align: center; margin-bottom: 34px; }
+  .brand {
+    display: inline-flex; align-items: center; gap: 12px;
+    padding: 7px 16px 7px 10px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--panel);
+    backdrop-filter: blur(10px); font-size: 13px; color: var(--muted); letter-spacing: .01em;
+  }
+  .brand .mark {
+    width: 24px; height: 24px; border-radius: 8px;
+    display: grid; place-items: center; font-size: 13px; color: #0b0b12; font-weight: 700;
+    background: linear-gradient(135deg, var(--violet), var(--cyan));
+    box-shadow: 0 0 18px rgba(124, 92, 255, .75);
+  }
+  .brand code { font-family: var(--mono); color: #c7ccff; }
+  h1 {
+    margin: 18px 0 10px; font-size: clamp(30px, 4.6vw, 46px); line-height: 1.08; letter-spacing: -0.025em; font-weight: 700;
+  }
+  h1 .accent {
+    background: linear-gradient(120deg, var(--violet) 10%, var(--cyan) 55%, var(--green) 95%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 0 22px rgba(124, 92, 255, .5));
+  }
+  .sub { margin: 0 auto; max-width: 660px; color: var(--muted); font-size: 14.5px; line-height: 1.7; }
+  .sub code { font-family: var(--mono); color: #c7ccff; background: rgba(124, 92, 255, .12); padding: 1px 6px; border-radius: 6px; border: 1px solid rgba(124, 92, 255, .22); }
+
+  .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+  .col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+  .card {
+    position: relative;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: linear-gradient(180deg, var(--panel-strong), var(--panel));
+    backdrop-filter: blur(14px);
+    box-shadow: 0 18px 60px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 255, 255, .05);
+    padding: 16px 16px 14px;
+    overflow: hidden;
+  }
+  .card::after {
+    content: ""; position: absolute; inset: 0; border-radius: 18px; pointer-events: none;
+    background: radial-gradient(600px circle at var(--mx, 50%) var(--my, 0%), rgba(124, 92, 255, .10), transparent 45%);
+    opacity: 0; transition: opacity .35s ease;
+  }
+  .card:hover::after { opacity: 1; }
+
+  .card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .card-head h2 { margin: 0; font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #b9c0d8; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .dot.a { background: var(--violet); box-shadow: 0 0 12px var(--violet); }
+  .dot.b { background: var(--cyan); box-shadow: 0 0 12px var(--cyan); }
+  .dot.c { background: var(--green); box-shadow: 0 0 12px var(--green); }
+
+  .spacer { flex: 1; }
+  .status {
+    font-family: var(--mono); font-size: 11.5px; color: var(--green);
+    border: 1px solid rgba(52, 211, 153, .28); background: rgba(52, 211, 153, .09);
+    padding: 3px 9px; border-radius: 999px; white-space: nowrap;
+  }
+  .status.error { color: var(--red); border-color: rgba(255, 93, 115, .35); background: rgba(255, 93, 115, .1); }
+  .status:empty { display: none; }
+
+  textarea, input[type="text"] {
+    width: 100%; border: 1px solid var(--line); border-radius: 12px;
+    background: rgba(6, 8, 16, .72); color: var(--text);
+    font-family: var(--mono); font-size: 13px; line-height: 1.65;
+    padding: 12px 13px; resize: vertical; outline: none;
+    transition: border-color .2s ease, box-shadow .25s ease, background .2s ease;
+    caret-color: var(--cyan);
+  }
+  textarea { min-height: 250px; }
+  input[type="text"] { min-height: 46px; }
+  textarea:hover, input[type="text"]:hover { border-color: rgba(255, 255, 255, .18); }
+  textarea:focus, input[type="text"]:focus {
+    border-color: rgba(124, 92, 255, .75);
+    background: rgba(10, 12, 24, .85);
+    box-shadow: 0 0 0 1px rgba(124, 92, 255, .45), 0 0 28px rgba(124, 92, 255, .28);
+  }
+
+  .hint { margin: 9px 2px 0; font-size: 11.5px; color: #6f7793; line-height: 1.6; }
+  .hint kbd {
+    font-family: var(--mono); font-size: 11px; color: #cfd4ea;
+    border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 6px; padding: 1px 5px; background: rgba(255,255,255,.05);
+  }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .chip {
+    font-family: var(--mono); font-size: 11.5px; color: #c3c9e4; cursor: pointer;
+    border: 1px solid var(--line); background: rgba(255, 255, 255, .045);
+    padding: 5px 11px; border-radius: 999px;
+    transition: all .2s ease;
+  }
+  .chip:hover {
+    color: #fff; border-color: rgba(34, 211, 238, .55); background: rgba(34, 211, 238, .12);
+    box-shadow: 0 0 18px rgba(34, 211, 238, .3); transform: translateY(-1px);
+  }
+
+  .actions { display: flex; align-items: center; gap: 12px; }
+  button.run {
+    position: relative; flex: 1; border: 0; cursor: pointer; overflow: hidden;
+    padding: 14px 22px; border-radius: 14px;
+    font-family: var(--sans); font-size: 14.5px; font-weight: 650; letter-spacing: .02em; color: #07070f;
+    background: linear-gradient(120deg, var(--violet), var(--cyan) 60%, var(--green));
+    box-shadow: 0 10px 34px rgba(124, 92, 255, .38), inset 0 1px 0 rgba(255, 255, 255, .45);
+    transition: transform .16s ease, box-shadow .25s ease, filter .2s ease;
+  }
+  button.run:hover { transform: translateY(-2px); box-shadow: 0 16px 44px rgba(34, 211, 238, .45); filter: saturate(1.12); }
+  button.run:active { transform: translateY(0) scale(.992); }
+  button.run:disabled { cursor: progress; filter: grayscale(.35) brightness(.9); transform: none; }
+  button.run::after {
+    content: ""; position: absolute; top: 0; left: -60%; width: 45%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .55), transparent);
+    transform: skewX(-18deg); animation: sheen 3.4s ease-in-out infinite;
+  }
+  @keyframes sheen { 0% { left: -60%; } 55% { left: 120%; } 100% { left: 120%; } }
+
+  button.ghost {
+    border: 1px solid var(--line); background: rgba(255, 255, 255, .04); color: #cfd4ea;
+    padding: 14px 16px; border-radius: 14px; cursor: pointer; font-size: 13px; font-family: var(--sans);
+    transition: all .2s ease;
+  }
+  button.ghost:hover { color: #fff; border-color: rgba(255, 255, 255, .25); box-shadow: 0 0 22px rgba(255, 255, 255, .12); }
+
+  .output-wrap { position: relative; }
+  pre.output {
+    margin: 0; min-height: 386px; max-height: 62vh; overflow: auto;
+    border: 1px solid var(--line); border-radius: 12px;
+    background: rgba(6, 8, 16, .78);
+    font-family: var(--mono); font-size: 13px; line-height: 1.62; color: var(--green);
+    padding: 13px; white-space: pre-wrap; word-break: break-word;
+    transition: color .2s ease, border-color .25s ease, box-shadow .25s ease;
+  }
+  pre.output.error {
+    color: var(--red); border-color: rgba(255, 93, 115, .45);
+    box-shadow: inset 0 0 40px rgba(255, 93, 115, .12), 0 0 26px rgba(255, 93, 115, .22);
+  }
+  pre.output.ok { box-shadow: inset 0 0 40px rgba(52, 211, 153, .08); }
+
+  .raw {
+    margin-top: 10px; font-family: var(--mono); font-size: 11.5px; color: #6f7793;
+    word-break: break-all; line-height: 1.6;
+  }
+  .raw b { color: #98a0bd; font-weight: 600; }
+
+  footer {
+    margin-top: 34px; text-align: center; color: #5d6480; font-size: 11.5px; line-height: 1.9;
+  }
+  footer code { font-family: var(--mono); color: #98a0bd; }
+
+  @media (max-width: 900px) {
+    .columns { grid-template-columns: 1fr; }
+    pre.output { min-height: 220px; }
+  }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .12); border-radius: 999px; border: 2px solid transparent; background-clip: content-box; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, .22); background-clip: content-box; }
+</style>
+</head>
+<body>
+  <div class="glow a"></div>
+  <div class="glow b"></div>
+  <div class="glow c"></div>
+  <div class="grid-lines"></div>
+
+  <div class="shell">
+    <header class="hero">
+      <div class="brand"><span class="mark">◆</span><span>MoonBit → JavaScript / Wasm · <code>run_query_js</code></span></div>
+      <h1>MoonQuery <span class="accent">Web Playground</span></h1>
+      <p class="sub">
+        一个用 MoonBit 从零实现的查询引擎：<b>Lexer → Parser → Evaluator</b>，编译成 Wasm/JS 后直接在浏览器里运行。
+        支持 <code>select &lt;fields|*&gt;</code>、<code>where &lt;field&gt; &gt; &lt;number&gt;</code>、<code>limit &lt;n&gt;</code>；返回的 <code>{"error": ...}</code> 会标红显示。
+      </p>
+    </header>
+
+    <div class="columns">
+      <div class="col">
+        <section class="card">
+          <div class="card-head"><span class="dot a"></span><h2>JSON 数据</h2></div>
+          <textarea id="json-input" spellcheck="false" aria-label="JSON 数据"></textarea>
+          <p class="hint">一个 JSON 数组，每个元素是一条记录。缺少被过滤字段、或字段不是数字的记录会被静默丢弃。</p>
+        </section>
+
+        <section class="card">
+          <div class="card-head"><span class="dot b"></span><h2>查询语句</h2></div>
+          <input id="query-input" type="text" spellcheck="false" aria-label="查询语句" />
+          <div class="chips" id="chips"></div>
+          <p class="hint">按 <kbd>Ctrl</kbd> + <kbd>Enter</kbd>（macOS 为 <kbd>&#8984;</kbd> + <kbd>Enter</kbd>）也可执行。</p>
+        </section>
+
+        <div class="actions">
+          <button class="run" id="run" type="button">&#9654;&nbsp;&nbsp;Run query</button>
+          <button class="ghost" id="reset" type="button">重置示例</button>
+        </div>
+      </div>
+
+      <div class="col">
+        <section class="card">
+          <div class="card-head"><span class="dot c"></span><h2>执行结果</h2><span class="spacer"></span><span class="status" id="status"></span></div>
+          <div class="output-wrap">
+            <pre class="output" id="output">正在加载 MoonBit 引擎…</pre>
+          </div>
+          <div class="raw" id="raw"></div>
+        </section>
+      </div>
+    </div>
+
+    <footer>
+      引擎产物：<code>web/moonquery.js</code>（ES module）与 <code>web/moonquery.global.js</code>（classic script）<br />
+      构建命令：<code>pwsh -File scripts/build-web.ps1</code>，或 <code>moon build src/ffi --target js --release</code>
+    </footer>
+  </div>
+
+  <!-- Generated by scripts/build-web.ps1 / moon build src/ffi --target js --release.
+       A classic script, so this page also works when opened straight from disk. -->
+  <script src="./moonquery.global.js"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    const EXAMPLE_DATA = [
+      { name: "Alice", age: 30, city: "Beijing" },
+      { name: "Bob", age: 35, city: "Shanghai" },
+      { name: "Carol", age: 42, city: "Shenzhen" },
+      { name: "Dave", age: 18, city: "Chengdu" },
+      { name: "Eve", city: "Wuhan" },
+    ];
+
+    const EXAMPLE_QUERIES = [
+      "select *",
+      "select name, age where age > 30",
+      "select name, city where age > 30 limit 2",
+      "select name where age > 40",
+      "select * limit 3",
+      "select where",
+    ];
+
+    let runner = null;
+    let loading = null;
+
+    /* The staged classic script defines globalThis.run_query_js; fall back to
+       the ES module in case only that one is reachable. */
+    async function engine() {
+      if (runner) return runner;
+      if (typeof globalThis.run_query_js === "function") {
+        runner = globalThis.run_query_js;
+        return runner;
+      }
+      if (!loading) {
+        loading = import("./moonquery.js").then((mod) => {
+          runner = mod.run_query_js;
+          return runner;
+        });
+      }
+      return await loading;
+    }
+
+    function looksLikeError(text) {
+      try {
+        const value = JSON.parse(text);
+        return (
+          value !== null &&
+          typeof value === "object" &&
+          !Array.isArray(value) &&
+          typeof value.error === "string"
+        );
+      } catch {
+        return false;
+      }
+    }
+
+    function pretty(text) {
+      try {
+        return JSON.stringify(JSON.parse(text), null, 2);
+      } catch {
+        return text;
+      }
+    }
+
+    function recordCount(text) {
+      try {
+        const value = JSON.parse(text);
+        return Array.isArray(value) ? value.length : null;
+      } catch {
+        return null;
+      }
+    }
+
+    async function run() {
+      const button = $("run");
+      const output = $("output");
+      const status = $("status");
+      const raw = $("raw");
+
+      button.disabled = true;
+      output.classList.remove("error", "ok");
+      status.classList.remove("error");
+      status.textContent = "";
+      raw.textContent = "";
+
+      try {
+        const runQuery = await engine();
+        const started = performance.now();
+        const result = runQuery($("json-input").value, $("query-input").value);
+        const elapsed = performance.now() - started;
+
+        const failed = looksLikeError(result);
+        output.textContent = failed ? result : pretty(result);
+        output.classList.add(failed ? "error" : "ok");
+        status.classList.toggle("error", failed);
+
+        if (failed) {
+          status.textContent = "查询错误";
+        } else {
+          const count = recordCount(result);
+          status.textContent =
+            elapsed.toFixed(2) + " ms" + (count === null ? "" : " · " + count + " 条记录");
+        }
+        raw.innerHTML = "<b>raw</b> " + result;
+      } catch (error) {
+        output.textContent =
+          "无法加载 MoonBit 引擎。\n\n请先构建：\n  pwsh -File scripts/build-web.ps1\n" +
+          "或：\n  moon build src/ffi --target js --release\n\n" +
+          String((error && error.stack) || error);
+        output.classList.add("error");
+        status.classList.add("error");
+        status.textContent = "引擎缺失";
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    function useQuery(query) {
+      $("query-input").value = query;
+      run();
+    }
+
+    function resetExample() {
+      $("json-input").value = JSON.stringify(EXAMPLE_DATA, null, 2);
+      $("query-input").value = EXAMPLE_QUERIES[1];
+      run();
+    }
+
+    const chips = $("chips");
+    for (const query of EXAMPLE_QUERIES) {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "chip";
+      chip.textContent = query;
+      chip.addEventListener("click", () => useQuery(query));
+      chips.appendChild(chip);
+    }
+
+    $("run").addEventListener("click", run);
+    $("reset").addEventListener("click", resetExample);
+    document.addEventListener("keydown", (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+        event.preventDefault();
+        run();
+      }
+    });
+
+    // Follow the pointer for the card glow highlight.
+    for (const card of document.querySelectorAll(".card")) {
+      card.addEventListener("pointermove", (event) => {
+        const rect = card.getBoundingClientRect();
+        card.style.setProperty("--mx", ((event.clientX - rect.left) / rect.width) * 100 + "%");
+        card.style.setProperty("--my", ((event.clientY - rect.top) / rect.height) * 100 + "%");
+      });
+    }
+
+    resetExample();
+  </script>
+</body>
+</html>

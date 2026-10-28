@@ -1,0 +1,9 @@
+import {
+  "moonbitlang/core/json",
+  "username/MoonQuery/lexer",
+  "username/MoonQuery/parser",
+}
+
+import {
+  "username/MoonQuery/parser",
+} for "test"

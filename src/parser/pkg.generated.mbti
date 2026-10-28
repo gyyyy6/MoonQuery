@@ -1,0 +1,27 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "username/MoonQuery/parser"
+
+import {
+  "moonbitlang/core/debug",
+  "username/MoonQuery/lexer",
+}
+
+// Values
+pub fn parse(Array[@lexer.Token]) -> Result[Query, String]
+
+// Errors
+
+// Types and methods
+pub(all) enum Expr {
+  Gt(String, Double)
+} derive(Eq, @debug.Debug)
+
+pub(all) struct Query {
+  fields : Array[String]
+  filter : Expr?
+  limit : Int32?
+} derive(Eq, @debug.Debug)
+
+// Type aliases
+
+// Traits

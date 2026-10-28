@@ -1,0 +1,46 @@
+# ---- MoonBit ----
+_build/
+target/
+.mooncakes/
+.moonagent/
+*.mi
+*.core
+*.wasm
+*.wat
+
+# ---- Node / 前端工具链 ----
+node_modules/
+package-lock.json
+npm-debug.log*
+yarn-error.log*
+.pnpm-store/
+
+# ---- 本地临时文件 / 环境 ----
+*.log
+*.tmp
+*.temp
+*.bak
+*.orig
+*.rej
+.env
+.env.*
+tmp/
+temp/
+*.local
+
+# ---- 编辑器 / 操作系统 ----
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+
+# ---- 说明 ----
+# web/moonquery.js 与 web/moonquery.global.js 是构建产物，但为了让
+# GitHub Pages / 静态托管能直接跑起来，这里刻意保留在版本库中；
+# 它们由 `scripts/build-web.ps1` 重新生成。
