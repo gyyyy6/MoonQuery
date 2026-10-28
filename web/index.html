@@ -287,6 +287,7 @@
       { name: "Carol", age: 42, city: "Shenzhen" },
       { name: "Dave", age: 18, city: "Chengdu" },
       { name: "Eve", city: "Wuhan" },
+      { name: "Frank", age: 27, city: "Hangzhou" },
     ];
 
     const EXAMPLE_QUERIES = [
@@ -295,6 +296,7 @@
       "select name, city where age > 30 limit 2",
       "select name where age > 40",
       "select * limit 3",
+      "select name, city where age > 25 limit 3",
       "select where",
     ];
 
