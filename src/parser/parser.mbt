@@ -4,11 +4,23 @@ pub(all) enum Expr {
 } derive(Eq, Debug)
 
 ///|
+pub extend Expr with Eq::{not_equal, equal}
+
+///|
+pub extend Expr with Debug::{to_repr}
+
+///|
 pub(all) struct Query {
   fields : Array[String]
   filter : Expr?
   limit : Int32?
 } derive(Eq, Debug)
+
+///|
+pub extend Query with Eq::{not_equal, equal}
+
+///|
+pub extend Query with Debug::{to_repr}
 
 ///|
 pub fn parse(tokens : Array[@lexer.Token]) -> Result[Query, String] {

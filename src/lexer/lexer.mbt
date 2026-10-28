@@ -11,6 +11,12 @@ pub(all) enum Token {
 } derive(Eq, Debug)
 
 ///|
+pub extend Token with Eq::{not_equal, equal}
+
+///|
+pub extend Token with Debug::{to_repr}
+
+///|
 fn chars_to_string(chars : Array[Char], start : Int32, end : Int32) -> String {
   let builder = StringBuilder()
   let mut i = start

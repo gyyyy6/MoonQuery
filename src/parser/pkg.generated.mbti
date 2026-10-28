@@ -15,12 +15,18 @@ pub fn parse(Array[@lexer.Token]) -> Result[Query, String]
 pub(all) enum Expr {
   Gt(String, Double)
 } derive(Eq, @debug.Debug)
+pub fn Expr::equal(Self, Self) -> Bool
+pub fn Expr::not_equal(Self, Self) -> Bool
+pub fn Expr::to_repr(Self) -> @debug.Repr
 
 pub(all) struct Query {
   fields : Array[String]
   filter : Expr?
   limit : Int32?
 } derive(Eq, @debug.Debug)
+pub fn Query::equal(Self, Self) -> Bool
+pub fn Query::not_equal(Self, Self) -> Bool
+pub fn Query::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 
