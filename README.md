@@ -104,6 +104,20 @@ python -m http.server 8080                    # 或 npx --yes serve web
 
 `web/index.html` 也可以直接双击打开：它优先加载 classic script 版本（`moonquery.global.js`），仅在缺失时才回退到 ES module。
 
+### 4. 部署到 GitHub Pages（在线 Demo）
+
+仓库里已经带了部署工作流 [`.github/workflows/static.yml`](.github/workflows/static.yml)：每次 push 到 `main` 就把 `web/` 目录发布成 Pages 站点。构建产物已入库，所以 CI 里不需要安装 MoonBit，几十秒就能跑完。
+
+1. 先把改动推上去：`git push origin main`
+2. 打开仓库 **Settings → Pages**
+3. **Build and deployment → Source** 选 **GitHub Actions**（不要选 "Deploy from a branch"）
+4. 到 **Actions** 标签页等 `Deploy Web to Pages` 跑完（也可以在 **Run workflow** 手动触发）
+5. 打开 `https://<你的用户名>.github.io/MoonQuery/`
+
+> 想用分支部署而不走 Actions 也可以：把 Source 改成 `Deploy from a branch`，分支选 `main`、目录选 **`/web`**，效果一样。
+>
+> 改了前端记得先 `powershell -File scripts/build-web.ps1` 重新构建，并把 `web/moonquery.js`、`web/moonquery.global.js` 一起提交，Pages 上才会生效。
+
 ## 📦 构建产物
 
 | 产物 | 路径 | 说明 |
@@ -147,6 +161,8 @@ MoonQuery/
 ├── scripts/
 │   ├── build-web.ps1        # 构建 + 暂存 + 冒烟测试
 │   └── smoke-web.cjs        # Node 端产物校验
+├── .github/
+│   └── workflows/static.yml  # GitHub Pages 自动部署
 └── README.md
 ```
 
