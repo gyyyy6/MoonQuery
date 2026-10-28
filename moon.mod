@@ -13,16 +13,16 @@ name = "username/MoonQuery"
 
 source = "src"
 
-version = "0.1.0"
+version = "1.0.0"
 
 readme = "README.md"
 
-repository = ""
+repository = "https://github.com/gyyyy6/MoonQuery"
 
 license = "Apache-2.0"
 
-keywords = [ ]
+keywords = ["json", "query-engine", "wasm", "web"]
 
 preferred_target = "wasm"
 
-description = ""
+description = "MoonQuery: a lightweight front-end JSON query engine written in MoonBit, compiled to Wasm/JavaScript. Status: Hackathon Ready."

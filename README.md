@@ -7,9 +7,11 @@
 给它一段 JSON 数组和一句类 SQL 查询，它返回过滤 + 投影后的 JSON。
 `Lexer → Parser → Evaluator → FFI → Web` 全链路由 MoonBit 从零实现，编译后直接在浏览器里运行。
 
-![tests](https://img.shields.io/badge/tests-12%2F12%20passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-13%2F13%20passing-brightgreen)
 ![target](https://img.shields.io/badge/target-wasm%20%7C%20wasm--gc%20%7C%20js-blueviolet)
 ![license](https://img.shields.io/badge/license-Apache--2.0-blue)
+
+**Status: Hackathon Ready**
 
 ![MoonQuery Web Playground](web/preview.png)
 
@@ -133,11 +135,11 @@ python -m http.server 8080                    # 或 npx --yes serve web
 
 ```text
 $ moon test
-Total tests: 12, passed: 12, failed: 0.
+Total tests: 13, passed: 13, failed: 0.
 
 lexer       1   tokenize "select name, age where age > 18"
 parser      1   parse "select name, age where age > 18 limit 10"
-evaluator  10   filter / limit / 字段投影 / select * / 缺失字段 / 非法查询 / 非法 JSON / 非数组文档
+evaluator  11   filter / limit / 字段投影 / select * / 缺失字段 / 非法查询 / 非法 JSON / 非数组文档 / limit 0 与空输入
 ```
 
 除单元测试外，还用无头 Chromium 真实渲染了 Playground 页面（`file://` 与 HTTP 两种加载方式），确认没有任何 console / page error，并分别校验了「正常结果」与「错误标红」两种状态。
@@ -146,6 +148,8 @@ evaluator  10   filter / limit / 字段投影 / select * / 缺失字段 / 非法
 
 ```text
 MoonQuery/
+├── .editorconfig            # 编辑器统一配置（UTF-8 / LF / 2 空格）
+├── .gitignore               # 忽略 _build/、node_modules/ 等
 ├── moon.mod                 # 模块元数据（source = "src"）
 ├── src/
 │   ├── lexer/               # ① 词法分析
