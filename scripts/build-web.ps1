@@ -11,7 +11,10 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $root
 
-Write-Host "[1/3] moon build src/ffi --target js --release"
+$started = Get-Date
+Write-Host ""
+Write-Host "Building moonquery..." -ForegroundColor Cyan
+Write-Host "  [1/3] moon build src/ffi --target js --release"
 moon build src/ffi --target js --release
 
 $artifact = Join-Path $root "_build/js/release/build/ffi/ffi.js"
@@ -22,10 +25,10 @@ if (-not (Test-Path -LiteralPath $artifact)) {
 $web = Join-Path $root "web"
 New-Item -ItemType Directory -Force -Path $web | Out-Null
 
-Write-Host "[2/3] staging ES module -> web/moonquery.js"
+Write-Host "  [2/3] staging ES module -> web/moonquery.js"
 Copy-Item -LiteralPath $artifact -Destination (Join-Path $web "moonquery.js") -Force
 
-Write-Host "[3/3] staging classic script -> web/moonquery.global.js"
+Write-Host "  [3/3] staging classic script -> web/moonquery.global.js"
 $code = [System.IO.File]::ReadAllText($artifact, [System.Text.Encoding]::UTF8)
 $pattern = '(?m)^[ \t]*export[ \t]*\{[ \t]*(?<inner>[\w$]+)[ \t]+as[ \t]+(?<name>[\w$]+)[ \t]*\}[ \t]*;?[ \t]*$'
 $globalCode = $code -replace $pattern, 'globalThis.${name} = ${inner};'
@@ -43,7 +46,7 @@ if ($node) {
 }
 
 Write-Host ""
-Write-Host "done. serve the playground with one of:" -ForegroundColor Green
+Write-Host ("done in " + [int]((Get-Date) - $started).TotalSeconds + "s. serve the playground with one of:") -ForegroundColor Green
 Write-Host "  cd web; python -m http.server 8080"
 Write-Host "  npx --yes serve web"
 Write-Host "then open http://localhost:8080/ (web/index.html also works when opened directly)"
