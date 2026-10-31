@@ -1,6 +1,11 @@
 ///|
 pub(all) enum Expr {
   Gt(String, Double)
+  Ge(String, Double)
+  Lt(String, Double)
+  Le(String, Double)
+  Eq(String, Double)
+  Ne(String, Double)
 } derive(Eq, Debug)
 
 ///|
@@ -21,6 +26,38 @@ pub extend Query with Eq::{not_equal, equal}
 
 ///|
 pub extend Query with Debug::{to_repr}
+
+///|
+/// Whether `token` is one of the comparison operators accepted in a filter.
+fn is_comparison_operator(token : @lexer.Token) -> Bool {
+  match token {
+    @lexer.Token::GT
+    | @lexer.Token::GE
+    | @lexer.Token::LT
+    | @lexer.Token::LE
+    | @lexer.Token::EQ
+    | @lexer.Token::NE => true
+    _ => false
+  }
+}
+
+///|
+/// Build the AST node for a comparison operator applied to `field` and `value`.
+fn comparison_expr(
+  token : @lexer.Token,
+  field : String,
+  value : Double,
+) -> Expr? {
+  match token {
+    @lexer.Token::GT => Some(Gt(field, value))
+    @lexer.Token::GE => Some(Ge(field, value))
+    @lexer.Token::LT => Some(Lt(field, value))
+    @lexer.Token::LE => Some(Le(field, value))
+    @lexer.Token::EQ => Some(Eq(field, value))
+    @lexer.Token::NE => Some(Ne(field, value))
+    _ => None
+  }
+}
 
 ///|
 pub fn parse(tokens : Array[@lexer.Token]) -> Result[Query, String] {
@@ -70,19 +107,23 @@ pub fn parse(tokens : Array[@lexer.Token]) -> Result[Query, String] {
           _ => return Err("expected filter field")
         }
         if index >= tokens.length() {
-          return Err("expected '>'")
+          return Err("expected comparison operator")
         }
-        match tokens[index] {
-          @lexer.Token::GT => index = index + 1
-          _ => return Err("expected '>'")
+        let operator = tokens[index]
+        if !is_comparison_operator(operator) {
+          return Err("expected comparison operator")
         }
+        index = index + 1
         if index >= tokens.length() {
           return Err("expected filter number")
         }
         match tokens[index] {
           @lexer.Token::Number(value) => {
             index = index + 1
-            filter = Some(Gt(field, value))
+            match comparison_expr(operator, field, value) {
+              Some(expr) => filter = Some(expr)
+              None => return Err("expected comparison operator")
+            }
           }
           _ => return Err("expected filter number")
         }
