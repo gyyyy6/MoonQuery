@@ -6,6 +6,11 @@ pub(all) enum Token {
   Identifier(String)
   Number(Double)
   GT
+  GE
+  LT
+  LE
+  EQ
+  NE
   Comma
   EOF
 } derive(Eq, Debug)
@@ -69,8 +74,35 @@ pub fn tokenize(input : String) -> Array[Token] {
       tokens.push(Identifier("*"))
       i = i + 1
     } else if c == '>' {
-      tokens.push(GT)
-      i = i + 1
+      if i + 1 < length && chars[i + 1] == '=' {
+        tokens.push(GE)
+        i = i + 2
+      } else {
+        tokens.push(GT)
+        i = i + 1
+      }
+    } else if c == '<' {
+      if i + 1 < length && chars[i + 1] == '=' {
+        tokens.push(LE)
+        i = i + 2
+      } else {
+        tokens.push(LT)
+        i = i + 1
+      }
+    } else if c == '=' {
+      if i + 1 < length && chars[i + 1] == '=' {
+        tokens.push(EQ)
+        i = i + 2
+      } else {
+        i = i + 1
+      }
+    } else if c == '!' {
+      if i + 1 < length && chars[i + 1] == '=' {
+        tokens.push(NE)
+        i = i + 2
+      } else {
+        i = i + 1
+      }
     } else if c.is_ascii_alphabetic() {
       let start = i
       while i < length && chars[i].is_ascii_alphabetic() {
