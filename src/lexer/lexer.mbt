@@ -3,8 +3,11 @@ pub(all) enum Token {
   Select
   Where
   Limit
+  Contains
+  StartsWith
   Identifier(String)
   Number(Double)
+  StringLit(String)
   GT
   GE
   LT
@@ -13,6 +16,7 @@ pub(all) enum Token {
   NE
   Comma
   EOF
+  LexError(String)
 } derive(Eq, Debug)
 
 ///|
@@ -58,6 +62,44 @@ fn parse_number(text : String) -> Double {
 }
 
 ///|
+/// Scan a double-quoted string literal starting at `start`.
+///
+/// Returns the decoded contents, the index just past the closing quote, and
+/// whether a closing quote was found. Common escapes (`\"`, `\\`, `\n`, `\t`,
+/// `\r`) are decoded; an unknown escape is preserved verbatim.
+fn scan_string_literal(
+  chars : Array[Char],
+  start : Int32,
+) -> (String, Int32, Bool) {
+  let builder = StringBuilder()
+  let length = chars.length()
+  let mut i = start + 1
+  while i < length {
+    let c = chars[i]
+    if c == '"' {
+      return (builder.to_string(), i + 1, true)
+    } else if c == '\\' && i + 1 < length {
+      match chars[i + 1] {
+        '"' => builder.write_char('"')
+        '\\' => builder.write_char('\\')
+        'n' => builder.write_char('\n')
+        't' => builder.write_char('\t')
+        'r' => builder.write_char('\r')
+        escaped => {
+          builder.write_char('\\')
+          builder.write_char(escaped)
+        }
+      }
+      i = i + 2
+    } else {
+      builder.write_char(c)
+      i = i + 1
+    }
+  }
+  (builder.to_string(), length, false)
+}
+
+///|
 pub fn tokenize(input : String) -> Array[Token] {
   let tokens : Array[Token] = []
   let chars = input.to_array()
@@ -73,6 +115,14 @@ pub fn tokenize(input : String) -> Array[Token] {
     } else if c == '*' {
       tokens.push(Identifier("*"))
       i = i + 1
+    } else if c == '"' {
+      let (text, next, closed) = scan_string_literal(chars, i)
+      if closed {
+        tokens.push(StringLit(text))
+      } else {
+        tokens.push(LexError("unterminated string literal"))
+      }
+      i = next
     } else if c == '>' {
       if i + 1 < length && chars[i + 1] == '=' {
         tokens.push(GE)
@@ -113,6 +163,8 @@ pub fn tokenize(input : String) -> Array[Token] {
         "select" => tokens.push(Select)
         "where" => tokens.push(Where)
         "limit" => tokens.push(Limit)
+        "contains" => tokens.push(Contains)
+        "startswith" => tokens.push(StartsWith)
         _ => tokens.push(Identifier(word))
       }
     } else if c.is_ascii_digit() {

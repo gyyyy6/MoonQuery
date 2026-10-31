@@ -15,11 +15,20 @@ pub(all) enum Token {
   Select
   Where
   Limit
+  Contains
+  StartsWith
   Identifier(String)
   Number(Double)
+  StringLit(String)
   GT
+  GE
+  LT
+  LE
+  EQ
+  NE
   Comma
   EOF
+  LexError(String)
 } derive(Eq, @debug.Debug)
 pub fn Token::equal(Self, Self) -> Bool
 pub fn Token::not_equal(Self, Self) -> Bool

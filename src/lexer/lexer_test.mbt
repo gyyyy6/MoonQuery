@@ -90,3 +90,74 @@ test "tokenize ignores incomplete comparison operators" {
   ]
   assert_eq(actual, expected)
 }
+
+///|
+test "tokenize string literal and contains keyword" {
+  let actual = @lexer.tokenize("select name where name contains \"li\"")
+  let expected : Array[@lexer.Token] = [
+    @lexer.Token::Select,
+    @lexer.Token::Identifier("name"),
+    @lexer.Token::Where,
+    @lexer.Token::Identifier("name"),
+    @lexer.Token::Contains,
+    @lexer.Token::StringLit("li"),
+    @lexer.Token::EOF,
+  ]
+  assert_eq(actual, expected)
+}
+
+///|
+test "tokenize string literal and startsWith keyword" {
+  let actual = @lexer.tokenize("select name where name startsWith \"Al\"")
+  let expected : Array[@lexer.Token] = [
+    @lexer.Token::Select,
+    @lexer.Token::Identifier("name"),
+    @lexer.Token::Where,
+    @lexer.Token::Identifier("name"),
+    @lexer.Token::StartsWith,
+    @lexer.Token::StringLit("Al"),
+    @lexer.Token::EOF,
+  ]
+  assert_eq(actual, expected)
+}
+
+///|
+test "tokenize matching keywords case-insensitively" {
+  let actual = @lexer.tokenize("contains STARTSWITH")
+  let expected : Array[@lexer.Token] = [
+    @lexer.Token::Contains,
+    @lexer.Token::StartsWith,
+    @lexer.Token::EOF,
+  ]
+  assert_eq(actual, expected)
+}
+
+///|
+test "tokenize string literal escapes" {
+  let actual = @lexer.tokenize(
+    "\"a\\nb\" \"say \\\"hi\\\"\" \"c:\\\\tmp\" \"\"",
+  )
+  let expected : Array[@lexer.Token] = [
+    @lexer.Token::StringLit("a\nb"),
+    @lexer.Token::StringLit("say \"hi\""),
+    @lexer.Token::StringLit("c:\\tmp"),
+    @lexer.Token::StringLit(""),
+    @lexer.Token::EOF,
+  ]
+  assert_eq(actual, expected)
+}
+
+///|
+test "tokenize reports an unterminated string literal" {
+  let actual = @lexer.tokenize("select name where city == \"Beijing")
+  let expected : Array[@lexer.Token] = [
+    @lexer.Token::Select,
+    @lexer.Token::Identifier("name"),
+    @lexer.Token::Where,
+    @lexer.Token::Identifier("city"),
+    @lexer.Token::EQ,
+    @lexer.Token::LexError("unterminated string literal"),
+    @lexer.Token::EOF,
+  ]
+  assert_eq(actual, expected)
+}
