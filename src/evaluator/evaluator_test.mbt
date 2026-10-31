@@ -70,8 +70,8 @@ test "execute filters, limits and projects parsed data" {
     Json::object({ "name": Json::string("Carol"), "age": Json::number(42.0) }),
   ]
   let query : @parser.Query = {
-    fields: ["name", "age"],
-    filter: Some(@parser.Expr::Gt("age", 31.0)),
+    fields: [["name"], ["age"]],
+    filter: Some(@parser.Expr::Gt(["age"], 31.0)),
     limit: Some(1),
   }
   let expected : Array[Json] = [
@@ -186,13 +186,13 @@ test "execute evaluates new AST nodes directly" {
     Json::object({ "name": Json::string("Bob"), "age": Json::number(35.0) }),
   ]
   let le_query : @parser.Query = {
-    fields: ["name"],
-    filter: Some(@parser.Expr::Le("age", 30.0)),
+    fields: [["name"]],
+    filter: Some(@parser.Expr::Le(["age"], 30.0)),
     limit: None,
   }
   let ne_query : @parser.Query = {
-    fields: ["name"],
-    filter: Some(@parser.Expr::Ne("age", 30.0)),
+    fields: [["name"]],
+    filter: Some(@parser.Expr::Ne(["age"], 30.0)),
     limit: None,
   }
   let expected_le : Array[Json] = [
@@ -361,5 +361,156 @@ test "run_query handles missing fields in logical expressions" {
       user_data, "select name where name == \"Alice\" or missing == 1",
     ),
     "[{\"name\":\"Alice\"}]",
+  )
+}
+
+///|
+/// Nested records used by the dotted-path tests. Carol has `profile.city`
+/// instead of `profile.address.city`, Dave's `profile` is a string, Eve's
+/// `profile.address.city` is a number, and Frank has no `profile` at all, so
+/// every path-based filter has to cope with a missing or mistyped segment.
+let nested_data : String =
+  #|[
+  #|  { "name": "Alice", "profile": { "address": { "city": "Beijing", "zip": "100000" }, "score": 95 } },
+  #|  { "name": "Bob", "profile": { "address": { "city": "Shanghai", "zip": "200000" }, "score": 88 } },
+  #|  { "name": "Carol", "profile": { "city": "Shenzhen", "score": 99 } },
+  #|  { "name": "Dave", "profile": "not-an-object" },
+  #|  { "name": "Eve", "profile": { "address": { "city": 123, "zip": "300000" } } },
+  #|  { "name": "Frank" }
+  #|]
+
+///|
+test "run_query filters on a two-level nested string field" {
+  assert_eq(
+    @evaluator.run_query(
+      nested_data, "select name where profile.address.city == \"Beijing\"",
+    ),
+    "[{\"name\":\"Alice\"}]",
+  )
+}
+
+///|
+test "run_query filters on a three-level nested string field" {
+  assert_eq(
+    @evaluator.run_query(
+      nested_data, "select name where profile.address.zip startsWith \"20\"",
+    ),
+    "[{\"name\":\"Bob\"}]",
+  )
+  assert_eq(
+    @evaluator.run_query(
+      nested_data, "select name where profile.address.city contains \"jing\"",
+    ),
+    "[{\"name\":\"Alice\"}]",
+  )
+}
+
+///|
+test "run_query compares numeric nested fields" {
+  assert_eq(
+    @evaluator.run_query(nested_data, "select name where profile.score >= 95"),
+    "[{\"name\":\"Alice\"},{\"name\":\"Carol\"}]",
+  )
+  assert_eq(
+    @evaluator.run_query(
+      nested_data, "select name where profile.score > 90 and profile.score < 99",
+    ),
+    "[{\"name\":\"Alice\"}]",
+  )
+}
+
+///|
+test "run_query drops records with a missing intermediate path" {
+  // Carol has profile.city but no profile.address; Frank has no profile.
+  assert_eq(
+    @evaluator.run_query(
+      nested_data, "select name where profile.address.city != \"Beijing\"",
+    ),
+    "[{\"name\":\"Bob\"}]",
+  )
+}
+
+///|
+test "run_query drops nested fields whose leaf has the wrong type" {
+  // Eve's city is a number, so string operators never match it.
+  assert_eq(
+    @evaluator.run_query(
+      nested_data, "select name where profile.address.city == \"123\"",
+    ),
+    "[]",
+  )
+  // zip is a string for every record, so a numeric comparison matches nothing.
+  assert_eq(
+    @evaluator.run_query(
+      nested_data, "select name where profile.address.zip > 50",
+    ),
+    "[]",
+  )
+  // Dave's profile is a string, not an object.
+  assert_eq(
+    @evaluator.run_query(nested_data, "select name where profile.score > 0"),
+    "[{\"name\":\"Alice\"},{\"name\":\"Bob\"},{\"name\":\"Carol\"}]",
+  )
+}
+
+///|
+test "run_query combines nested filters with logical operators" {
+  assert_eq(
+    @evaluator.run_query(
+      nested_data, "select name where profile.score > 90 and profile.address.city == \"Beijing\"",
+    ),
+    "[{\"name\":\"Alice\"}]",
+  )
+  assert_eq(
+    @evaluator.run_query(
+      nested_data, "select name where profile.address.city == \"Shenzhen\" or profile.score >= 95",
+    ),
+    "[{\"name\":\"Alice\"},{\"name\":\"Carol\"}]",
+  )
+}
+
+///|
+test "run_query projects a nested path without flattening" {
+  assert_eq(
+    @evaluator.run_query(
+      nested_data, "select name, profile.address.city where profile.score >= 95",
+    ),
+    "[{\"name\":\"Alice\",\"profile\":{\"address\":{\"city\":\"Beijing\"}}},{\"name\":\"Carol\"}]",
+  )
+}
+
+///|
+test "run_query merges sibling nested projection paths" {
+  assert_eq(
+    @evaluator.run_query(
+      nested_data, "select profile.address.city, profile.address.zip where name == \"Bob\"",
+    ),
+    "[{\"profile\":{\"address\":{\"city\":\"Shanghai\",\"zip\":\"200000\"}}}]",
+  )
+}
+
+///|
+test "run_query ignores non-object records for nested filters" {
+  let data =
+    #|[
+    #|  "not-an-object",
+    #|  42,
+    #|  { "name": "Alice", "profile": { "address": { "city": "Beijing" } } }
+    #|]
+  assert_eq(
+    @evaluator.run_query(
+      data, "select name where profile.address.city == \"Beijing\"",
+    ),
+    "[{\"name\":\"Alice\"}]",
+  )
+}
+
+///|
+test "run_query reports a malformed nested path" {
+  assert_eq(
+    @evaluator.run_query(
+      nested_data, "select name where profile..address == \"Beijing\"",
+    ),
+    "{\"error\":\"expected field name after '.'\"}",
   )
 }

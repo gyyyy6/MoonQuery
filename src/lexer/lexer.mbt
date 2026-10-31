@@ -16,6 +16,7 @@ pub(all) enum Token {
   LE
   EQ
   NE
+  Dot
   Comma
   EOF
   LexError(String)
@@ -110,6 +111,9 @@ pub fn tokenize(input : String) -> Array[Token] {
   while i < length {
     let c = chars[i]
     if c.is_ascii_whitespace() {
+      i = i + 1
+    } else if c == '.' {
+      tokens.push(Dot)
       i = i + 1
     } else if c == ',' {
       tokens.push(Comma)

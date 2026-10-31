@@ -13,16 +13,16 @@ pub fn parse(Array[@lexer.Token]) -> Result[Query, String]
 
 // Types and methods
 pub(all) enum Expr {
-  Gt(String, Double)
-  Ge(String, Double)
-  Lt(String, Double)
-  Le(String, Double)
-  Eq(String, Double)
-  Ne(String, Double)
-  EqStr(String, String)
-  NeStr(String, String)
-  Contains(String, String)
-  StartsWith(String, String)
+  Gt(Array[String], Double)
+  Ge(Array[String], Double)
+  Lt(Array[String], Double)
+  Le(Array[String], Double)
+  Eq(Array[String], Double)
+  Ne(Array[String], Double)
+  EqStr(Array[String], String)
+  NeStr(Array[String], String)
+  Contains(Array[String], String)
+  StartsWith(Array[String], String)
   And(Expr, Expr)
   Or(Expr, Expr)
 } derive(Eq, @debug.Debug)
@@ -31,7 +31,7 @@ pub fn Expr::not_equal(Self, Self) -> Bool
 pub fn Expr::to_repr(Self) -> @debug.Repr
 
 pub(all) struct Query {
-  fields : Array[String]
+  fields : Array[Array[String]]
   filter : Expr?
   limit : Int32?
 } derive(Eq, @debug.Debug)

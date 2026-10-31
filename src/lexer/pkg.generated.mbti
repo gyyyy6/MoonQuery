@@ -28,6 +28,7 @@ pub(all) enum Token {
   LE
   EQ
   NE
+  Dot
   Comma
   EOF
   LexError(String)

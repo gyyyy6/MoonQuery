@@ -183,3 +183,59 @@ test "tokenize and/or keywords" {
   ]
   assert_eq(actual, expected)
 }
+
+///|
+test "tokenize dotted field paths" {
+  let actual = @lexer.tokenize(
+    "select profile.address.city where profile.address.city == \"Beijing\"",
+  )
+  let expected : Array[@lexer.Token] = [
+    @lexer.Token::Select,
+    @lexer.Token::Identifier("profile"),
+    @lexer.Token::Dot,
+    @lexer.Token::Identifier("address"),
+    @lexer.Token::Dot,
+    @lexer.Token::Identifier("city"),
+    @lexer.Token::Where,
+    @lexer.Token::Identifier("profile"),
+    @lexer.Token::Dot,
+    @lexer.Token::Identifier("address"),
+    @lexer.Token::Dot,
+    @lexer.Token::Identifier("city"),
+    @lexer.Token::EQ,
+    @lexer.Token::StringLit("Beijing"),
+    @lexer.Token::EOF,
+  ]
+  assert_eq(actual, expected)
+}
+
+///|
+test "tokenize decimals without emitting dot tokens" {
+  let actual = @lexer.tokenize("price >= 19.99 or ratio < 0.5")
+  let expected : Array[@lexer.Token] = [
+    @lexer.Token::Identifier("price"),
+    @lexer.Token::GE,
+    @lexer.Token::Number(19.99),
+    @lexer.Token::Or,
+    @lexer.Token::Identifier("ratio"),
+    @lexer.Token::LT,
+    @lexer.Token::Number(0.5),
+    @lexer.Token::EOF,
+  ]
+  assert_eq(actual, expected)
+}
+
+///|
+test "tokenize standalone dots" {
+  let actual = @lexer.tokenize(".a . .b.")
+  let expected : Array[@lexer.Token] = [
+    @lexer.Token::Dot,
+    @lexer.Token::Identifier("a"),
+    @lexer.Token::Dot,
+    @lexer.Token::Dot,
+    @lexer.Token::Identifier("b"),
+    @lexer.Token::Dot,
+    @lexer.Token::EOF,
+  ]
+  assert_eq(actual, expected)
+}

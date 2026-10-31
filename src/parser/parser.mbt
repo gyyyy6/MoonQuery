@@ -1,15 +1,15 @@
 ///|
 pub(all) enum Expr {
-  Gt(String, Double)
-  Ge(String, Double)
-  Lt(String, Double)
-  Le(String, Double)
-  Eq(String, Double)
-  Ne(String, Double)
-  EqStr(String, String)
-  NeStr(String, String)
-  Contains(String, String)
-  StartsWith(String, String)
+  Gt(Array[String], Double)
+  Ge(Array[String], Double)
+  Lt(Array[String], Double)
+  Le(Array[String], Double)
+  Eq(Array[String], Double)
+  Ne(Array[String], Double)
+  EqStr(Array[String], String)
+  NeStr(Array[String], String)
+  Contains(Array[String], String)
+  StartsWith(Array[String], String)
   And(Expr, Expr)
   Or(Expr, Expr)
 } derive(Eq, Debug)
@@ -22,7 +22,7 @@ pub extend Expr with Debug::{to_repr}
 
 ///|
 pub(all) struct Query {
-  fields : Array[String]
+  fields : Array[Array[String]]
   filter : Expr?
   limit : Int32?
 } derive(Eq, Debug)
@@ -50,8 +50,56 @@ fn is_filter_operator(token : @lexer.Token) -> Bool {
 }
 
 ///|
+/// Parse a dotted field path starting at `start`.
+///
+/// A single identifier is a one-segment path; `address.city` becomes
+/// `["address", "city"]`. This is shared by filters and projections so that
+/// `select profile.address.city` and `where profile.address.city == "..."` use
+/// exactly the same syntax.
+fn parse_field_path(
+  tokens : Array[@lexer.Token],
+  start : Int32,
+) -> Result[(Array[String], Int32), String] {
+  if start >= tokens.length() {
+    return Err("expected field name")
+  }
+  let path : Array[String] = []
+  let mut index = start
+  match tokens[index] {
+    @lexer.Token::Identifier(name) => {
+      path.push(name)
+      index = index + 1
+    }
+    _ => return Err("expected field name")
+  }
+  let mut parsing = true
+  while parsing && index < tokens.length() {
+    match tokens[index] {
+      @lexer.Token::Dot => {
+        if index + 1 >= tokens.length() {
+          return Err("expected field name after '.'")
+        }
+        match tokens[index + 1] {
+          @lexer.Token::Identifier(name) => {
+            path.push(name)
+            index = index + 2
+          }
+          _ => return Err("expected field name after '.'")
+        }
+      }
+      _ => parsing = false
+    }
+  }
+  Ok((path, index))
+}
+
+///|
 /// Build a numeric comparison node for `field` and `value`.
-fn numeric_expr(token : @lexer.Token, field : String, value : Double) -> Expr? {
+fn numeric_expr(
+  token : @lexer.Token,
+  field : Array[String],
+  value : Double,
+) -> Expr? {
   match token {
     @lexer.Token::GT => Some(Gt(field, value))
     @lexer.Token::GE => Some(Ge(field, value))
@@ -67,7 +115,7 @@ fn numeric_expr(token : @lexer.Token, field : String, value : Double) -> Expr? {
 /// Build a string equality node for `field` and `value`.
 fn string_equality_expr(
   token : @lexer.Token,
-  field : String,
+  field : Array[String],
   value : String,
 ) -> Expr? {
   match token {
@@ -86,11 +134,16 @@ fn parse_filter_primary(
   if start >= tokens.length() {
     return Err("expected filter field")
   }
-  let field = match tokens[start] {
-    @lexer.Token::Identifier(name) => name
+  match tokens[start] {
+    @lexer.Token::Identifier(_) => ()
     _ => return Err("expected filter field")
   }
-  let mut index = start + 1
+  let parsed_path = match parse_field_path(tokens, start) {
+    Ok(result) => result
+    Err(message) => return Err(message)
+  }
+  let field = parsed_path.0
+  let mut index = parsed_path.1
   if index >= tokens.length() {
     return Err("expected comparison operator")
   }
@@ -220,20 +273,19 @@ pub fn parse(tokens : Array[@lexer.Token]) -> Result[Query, String] {
     @lexer.Token::Select => ()
     _ => return Err("expected 'select'")
   }
-  let fields : Array[String] = []
+  let fields : Array[Array[String]] = []
   let mut index = 1
   let mut parsing_fields = true
   while parsing_fields {
     if index >= tokens.length() {
       return Err("expected field name")
     }
-    match tokens[index] {
-      @lexer.Token::Identifier(name) => {
-        fields.push(name)
-        index = index + 1
-      }
-      _ => return Err("expected field name")
+    let (field, next) = match parse_field_path(tokens, index) {
+      Ok(result) => result
+      Err(message) => return Err(message)
     }
+    fields.push(field)
+    index = next
     if index < tokens.length() {
       match tokens[index] {
         @lexer.Token::Comma => index = index + 1
