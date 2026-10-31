@@ -14,6 +14,15 @@ pub fn parse(Array[@lexer.Token]) -> Result[Query, String]
 // Types and methods
 pub(all) enum Expr {
   Gt(String, Double)
+  Ge(String, Double)
+  Lt(String, Double)
+  Le(String, Double)
+  Eq(String, Double)
+  Ne(String, Double)
+  EqStr(String, String)
+  NeStr(String, String)
+  Contains(String, String)
+  StartsWith(String, String)
 } derive(Eq, @debug.Debug)
 pub fn Expr::equal(Self, Self) -> Bool
 pub fn Expr::not_equal(Self, Self) -> Bool
