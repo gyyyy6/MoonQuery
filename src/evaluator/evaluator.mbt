@@ -17,6 +17,18 @@ fn numeric_field(object : Map[String, Json], field : String) -> Double? {
 }
 
 ///|
+/// Read `field` from `object` as a string.
+///
+/// Returns `None` when the field is missing or is not a JSON string, so string
+/// filters drop records whose field has another type.
+fn string_field(object : Map[String, Json], field : String) -> String? {
+  match object.get(field) {
+    Some(String(value)) => Some(value)
+    _ => None
+  }
+}
+
+///|
 /// Apply `predicate` to the numeric value of `field` in `value`.
 ///
 /// Returns `false` when `value` is not an object, or when the field is missing
@@ -30,6 +42,26 @@ fn compare_numeric_field(
   match value {
     Object(object) =>
       match numeric_field(object, field) {
+        Some(actual) => predicate(actual)
+        None => false
+      }
+    _ => false
+  }
+}
+
+///|
+/// Apply `predicate` to the string value of `field` in `value`.
+///
+/// Missing fields and non-string values yield `false`, so string filters never
+/// accidentally match a record of the wrong type.
+fn compare_string_field(
+  value : Json,
+  field : String,
+  predicate : (String) -> Bool,
+) -> Bool {
+  match value {
+    Object(object) =>
+      match string_field(object, field) {
         Some(actual) => predicate(actual)
         None => false
       }
@@ -53,6 +85,18 @@ fn matches_filter(value : Json, filter : @parser.Expr) -> Bool {
       compare_numeric_field(value, field, fn(actual) { actual == threshold })
     @parser.Expr::Ne(field, threshold) =>
       compare_numeric_field(value, field, fn(actual) { actual != threshold })
+    @parser.Expr::EqStr(field, expected) =>
+      compare_string_field(value, field, fn(actual) { actual == expected })
+    @parser.Expr::NeStr(field, expected) =>
+      compare_string_field(value, field, fn(actual) { actual != expected })
+    @parser.Expr::Contains(field, needle) =>
+      compare_string_field(value, field, fn(actual) {
+        actual.contains(needle.to_string_view())
+      })
+    @parser.Expr::StartsWith(field, prefix) =>
+      compare_string_field(value, field, fn(actual) {
+        actual.has_prefix(prefix.to_string_view())
+      })
   }
 }
 

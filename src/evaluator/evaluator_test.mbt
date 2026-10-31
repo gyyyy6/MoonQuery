@@ -204,3 +204,100 @@ test "execute evaluates new AST nodes directly" {
   assert_eq(@evaluator.execute(le_query, data), expected_le)
   assert_eq(@evaluator.execute(ne_query, data), expected_ne)
 }
+
+///|
+/// Dataset for string filters. Eve has no `city`, and Mallory's `city` is a
+/// number, so both must be dropped by every string operator.
+let string_data : String =
+  #|[
+  #|  { "name": "Alice", "city": "Beijing", "age": 30 },
+  #|  { "name": "Bob", "city": "Shanghai", "age": 35 },
+  #|  { "name": "Carol", "city": "Shenzhen", "age": 42 },
+  #|  { "name": "Dave", "city": "Chengdu", "age": 18 },
+  #|  { "name": "Eve" },
+  #|  { "name": "Mallory", "city": 123, "age": 50 }
+  #|]
+
+///|
+test "run_query supports string equality" {
+  assert_eq(
+    @evaluator.run_query(string_data, "select name where city == \"Beijing\""),
+    "[{\"name\":\"Alice\"}]",
+  )
+  assert_eq(
+    @evaluator.run_query(string_data, "select name where city == \"Paris\""),
+    "[]",
+  )
+}
+
+///|
+test "run_query supports string inequality and skips missing or mistyped fields" {
+  assert_eq(
+    @evaluator.run_query(string_data, "select name where city != \"Beijing\""),
+    "[{\"name\":\"Bob\"},{\"name\":\"Carol\"},{\"name\":\"Dave\"}]",
+  )
+}
+
+///|
+test "run_query supports contains" {
+  assert_eq(
+    @evaluator.run_query(string_data, "select name where name contains \"ar\""),
+    "[{\"name\":\"Carol\"}]",
+  )
+  assert_eq(
+    @evaluator.run_query(
+      string_data, "select name where city contains \"jing\"",
+    ),
+    "[{\"name\":\"Alice\"}]",
+  )
+  // Mallory's numeric city is not a string, so it never matches.
+  assert_eq(
+    @evaluator.run_query(string_data, "select name where city contains \"1\""),
+    "[]",
+  )
+}
+
+///|
+test "run_query supports startsWith" {
+  assert_eq(
+    @evaluator.run_query(
+      string_data, "select name where name startsWith \"Al\"",
+    ),
+    "[{\"name\":\"Alice\"}]",
+  )
+  assert_eq(
+    @evaluator.run_query(
+      string_data, "select name where city startsWith \"Sh\"",
+    ),
+    "[{\"name\":\"Bob\"},{\"name\":\"Carol\"}]",
+  )
+  // Prefix matching is case-sensitive.
+  assert_eq(
+    @evaluator.run_query(
+      string_data, "select name where name startsWith \"al\"",
+    ),
+    "[]",
+  )
+}
+
+///|
+test "run_query combines a string filter with limit and projection" {
+  assert_eq(
+    @evaluator.run_query(
+      string_data, "select name, city where city contains \"h\" limit 2",
+    ),
+    "[{\"name\":\"Bob\",\"city\":\"Shanghai\"},{\"name\":\"Carol\",\"city\":\"Shenzhen\"}]",
+  )
+}
+
+///|
+test "run_query reports string literal and operand errors" {
+  assert_eq(
+    @evaluator.run_query(string_data, "select name where city == \"Beijing"),
+    "{\"error\":\"unterminated string literal\"}",
+  )
+  assert_eq(
+    @evaluator.run_query(string_data, "select name where name contains 5"),
+    "{\"error\":\"expected filter string\"}",
+  )
+}
