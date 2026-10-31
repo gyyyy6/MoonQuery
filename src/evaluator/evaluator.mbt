@@ -17,18 +17,42 @@ fn numeric_field(object : Map[String, Json], field : String) -> Double? {
 }
 
 ///|
+/// Apply `predicate` to the numeric value of `field` in `value`.
+///
+/// Returns `false` when `value` is not an object, or when the field is missing
+/// or not a JSON number. Every comparison operator uses this gate, so `!=`
+/// does not accidentally match records that simply lack the field.
+fn compare_numeric_field(
+  value : Json,
+  field : String,
+  predicate : (Double) -> Bool,
+) -> Bool {
+  match value {
+    Object(object) =>
+      match numeric_field(object, field) {
+        Some(actual) => predicate(actual)
+        None => false
+      }
+    _ => false
+  }
+}
+
+///|
 /// Decide whether a single record satisfies a filter expression.
 fn matches_filter(value : Json, filter : @parser.Expr) -> Bool {
   match filter {
     @parser.Expr::Gt(field, threshold) =>
-      match value {
-        Object(object) =>
-          match numeric_field(object, field) {
-            Some(value) => value > threshold
-            None => false
-          }
-        _ => false
-      }
+      compare_numeric_field(value, field, fn(actual) { actual > threshold })
+    @parser.Expr::Ge(field, threshold) =>
+      compare_numeric_field(value, field, fn(actual) { actual >= threshold })
+    @parser.Expr::Lt(field, threshold) =>
+      compare_numeric_field(value, field, fn(actual) { actual < threshold })
+    @parser.Expr::Le(field, threshold) =>
+      compare_numeric_field(value, field, fn(actual) { actual <= threshold })
+    @parser.Expr::Eq(field, threshold) =>
+      compare_numeric_field(value, field, fn(actual) { actual == threshold })
+    @parser.Expr::Ne(field, threshold) =>
+      compare_numeric_field(value, field, fn(actual) { actual != threshold })
   }
 }
 

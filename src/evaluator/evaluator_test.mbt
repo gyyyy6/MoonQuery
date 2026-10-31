@@ -114,3 +114,93 @@ test "run_query handles a non-array document and a zero limit" {
   // An empty input array stays empty, whatever the query asks for.
   assert_eq(@evaluator.run_query("[]", "select * limit 5"), "[]")
 }
+
+///|
+test "run_query supports < and <= filters" {
+  assert_eq(
+    @evaluator.run_query(user_data, "select name where age < 30"),
+    "[{\"name\":\"Dave\"}]",
+  )
+  assert_eq(
+    @evaluator.run_query(user_data, "select name where age <= 30"),
+    "[{\"name\":\"Alice\"},{\"name\":\"Dave\"}]",
+  )
+}
+
+///|
+test "run_query supports >= filters including the boundary" {
+  assert_eq(
+    @evaluator.run_query(user_data, "select name where age >= 35"),
+    "[{\"name\":\"Bob\"},{\"name\":\"Carol\"}]",
+  )
+}
+
+///|
+test "run_query supports == and != filters" {
+  assert_eq(
+    @evaluator.run_query(user_data, "select name where age == 30"),
+    "[{\"name\":\"Alice\"}]",
+  )
+  // Eve has no `age`, so even `!=` drops her: every comparison requires a
+  // numeric field.
+  assert_eq(
+    @evaluator.run_query(user_data, "select name where age != 30"),
+    "[{\"name\":\"Bob\"},{\"name\":\"Carol\"},{\"name\":\"Dave\"}]",
+  )
+  assert_eq(
+    @evaluator.run_query(user_data, "select name where age != 100"),
+    "[{\"name\":\"Alice\"},{\"name\":\"Bob\"},{\"name\":\"Carol\"},{\"name\":\"Dave\"}]",
+  )
+}
+
+///|
+test "run_query compares fractional numbers as doubles" {
+  let data =
+    #|[
+    #|  { "name": "half", "score": 1.5 },
+    #|  { "name": "two", "score": 2.0 },
+    #|  { "name": "five-halves", "score": 2.5 }
+    #|]
+  assert_eq(
+    @evaluator.run_query(data, "select name where score >= 2.0"),
+    "[{\"name\":\"two\"},{\"name\":\"five-halves\"}]",
+  )
+  assert_eq(
+    @evaluator.run_query(data, "select name where score == 2.0"),
+    "[{\"name\":\"two\"}]",
+  )
+  assert_eq(
+    @evaluator.run_query(data, "select name where score < 2.5"),
+    "[{\"name\":\"half\"},{\"name\":\"two\"}]",
+  )
+  assert_eq(
+    @evaluator.run_query(data, "select name where score != 2.0"),
+    "[{\"name\":\"half\"},{\"name\":\"five-halves\"}]",
+  )
+}
+
+///|
+test "execute evaluates new AST nodes directly" {
+  let data : Array[Json] = [
+    Json::object({ "name": Json::string("Alice"), "age": Json::number(30.0) }),
+    Json::object({ "name": Json::string("Bob"), "age": Json::number(35.0) }),
+  ]
+  let le_query : @parser.Query = {
+    fields: ["name"],
+    filter: Some(@parser.Expr::Le("age", 30.0)),
+    limit: None,
+  }
+  let ne_query : @parser.Query = {
+    fields: ["name"],
+    filter: Some(@parser.Expr::Ne("age", 30.0)),
+    limit: None,
+  }
+  let expected_le : Array[Json] = [
+    Json::object({ "name": Json::string("Alice") }),
+  ]
+  let expected_ne : Array[Json] = [
+    Json::object({ "name": Json::string("Bob") }),
+  ]
+  assert_eq(@evaluator.execute(le_query, data), expected_le)
+  assert_eq(@evaluator.execute(ne_query, data), expected_ne)
+}
