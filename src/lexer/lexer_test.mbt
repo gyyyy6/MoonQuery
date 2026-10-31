@@ -161,3 +161,25 @@ test "tokenize reports an unterminated string literal" {
   ]
   assert_eq(actual, expected)
 }
+
+///|
+test "tokenize and/or keywords" {
+  let actual = @lexer.tokenize(
+    "age > 18 AND name == \"Alice\" or city == \"Paris\"",
+  )
+  let expected : Array[@lexer.Token] = [
+    @lexer.Token::Identifier("age"),
+    @lexer.Token::GT,
+    @lexer.Token::Number(18.0),
+    @lexer.Token::And,
+    @lexer.Token::Identifier("name"),
+    @lexer.Token::EQ,
+    @lexer.Token::StringLit("Alice"),
+    @lexer.Token::Or,
+    @lexer.Token::Identifier("city"),
+    @lexer.Token::EQ,
+    @lexer.Token::StringLit("Paris"),
+    @lexer.Token::EOF,
+  ]
+  assert_eq(actual, expected)
+}

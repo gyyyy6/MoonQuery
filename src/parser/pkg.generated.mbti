@@ -23,6 +23,8 @@ pub(all) enum Expr {
   NeStr(String, String)
   Contains(String, String)
   StartsWith(String, String)
+  And(Expr, Expr)
+  Or(Expr, Expr)
 } derive(Eq, @debug.Debug)
 pub fn Expr::equal(Self, Self) -> Bool
 pub fn Expr::not_equal(Self, Self) -> Bool

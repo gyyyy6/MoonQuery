@@ -97,6 +97,20 @@ fn matches_filter(value : Json, filter : @parser.Expr) -> Bool {
       compare_string_field(value, field, fn(actual) {
         actual.has_prefix(prefix.to_string_view())
       })
+    @parser.Expr::And(left, right) =>
+      // Short-circuit: a false left operand skips the right operand.
+      if matches_filter(value, left) {
+        matches_filter(value, right)
+      } else {
+        false
+      }
+    @parser.Expr::Or(left, right) =>
+      // Short-circuit: a true left operand skips the right operand.
+      if matches_filter(value, left) {
+        true
+      } else {
+        matches_filter(value, right)
+      }
   }
 }
 

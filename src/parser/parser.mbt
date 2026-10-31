@@ -10,6 +10,8 @@ pub(all) enum Expr {
   NeStr(String, String)
   Contains(String, String)
   StartsWith(String, String)
+  And(Expr, Expr)
+  Or(Expr, Expr)
 } derive(Eq, Debug)
 
 ///|
@@ -76,6 +78,132 @@ fn string_equality_expr(
 }
 
 ///|
+/// Parse a single comparison, e.g. `age > 18` or `name == "Alice"`.
+fn parse_filter_primary(
+  tokens : Array[@lexer.Token],
+  start : Int32,
+) -> Result[(Expr, Int32), String] {
+  if start >= tokens.length() {
+    return Err("expected filter field")
+  }
+  let field = match tokens[start] {
+    @lexer.Token::Identifier(name) => name
+    _ => return Err("expected filter field")
+  }
+  let mut index = start + 1
+  if index >= tokens.length() {
+    return Err("expected comparison operator")
+  }
+  let operator = tokens[index]
+  if !is_filter_operator(operator) {
+    return Err("expected comparison operator")
+  }
+  index = index + 1
+  if index >= tokens.length() {
+    return Err("expected filter value")
+  }
+  let value_token = tokens[index]
+  index = index + 1
+  let expr = match operator {
+    @lexer.Token::GT | @lexer.Token::GE | @lexer.Token::LT | @lexer.Token::LE =>
+      match value_token {
+        @lexer.Token::Number(value) =>
+          match numeric_expr(operator, field, value) {
+            Some(expr) => expr
+            None => return Err("expected comparison operator")
+          }
+        _ => return Err("expected filter number")
+      }
+    @lexer.Token::EQ | @lexer.Token::NE =>
+      match value_token {
+        @lexer.Token::Number(value) =>
+          match numeric_expr(operator, field, value) {
+            Some(expr) => expr
+            None => return Err("expected comparison operator")
+          }
+        @lexer.Token::StringLit(value) =>
+          match string_equality_expr(operator, field, value) {
+            Some(expr) => expr
+            None => return Err("expected comparison operator")
+          }
+        _ => return Err("expected filter number or string")
+      }
+    @lexer.Token::Contains =>
+      match value_token {
+        @lexer.Token::StringLit(value) => Contains(field, value)
+        _ => return Err("expected filter string")
+      }
+    @lexer.Token::StartsWith =>
+      match value_token {
+        @lexer.Token::StringLit(value) => StartsWith(field, value)
+        _ => return Err("expected filter string")
+      }
+    _ => return Err("expected comparison operator")
+  }
+  Ok((expr, index))
+}
+
+///|
+/// Parse one or more comparisons joined by `and`. `and` binds tighter than
+/// `or`, so this level stops when it sees `or`.
+fn parse_and_expression(
+  tokens : Array[@lexer.Token],
+  start : Int32,
+) -> Result[(Expr, Int32), String] {
+  let first = match parse_filter_primary(tokens, start) {
+    Ok(result) => result
+    Err(message) => return Err(message)
+  }
+  let mut left = first.0
+  let mut index = first.1
+  let mut parsing = true
+  while parsing && index < tokens.length() {
+    match tokens[index] {
+      @lexer.Token::And => {
+        let right = match parse_filter_primary(tokens, index + 1) {
+          Ok(result) => result
+          Err(message) => return Err(message)
+        }
+        left = And(left, right.0)
+        index = right.1
+      }
+      _ => parsing = false
+    }
+  }
+  Ok((left, index))
+}
+
+///|
+/// Parse one or more `and` expressions joined by `or`. This is the lowest
+/// precedence level of a `where` clause.
+fn parse_or_expression(
+  tokens : Array[@lexer.Token],
+  start : Int32,
+) -> Result[(Expr, Int32), String] {
+  let first = match parse_and_expression(tokens, start) {
+    Ok(result) => result
+    Err(message) => return Err(message)
+  }
+  let mut left = first.0
+  let mut index = first.1
+  let mut parsing = true
+  while parsing && index < tokens.length() {
+    match tokens[index] {
+      @lexer.Token::Or => {
+        let right = match parse_and_expression(tokens, index + 1) {
+          Ok(result) => result
+          Err(message) => return Err(message)
+        }
+        left = Or(left, right.0)
+        index = right.1
+      }
+      _ => parsing = false
+    }
+  }
+  Ok((left, index))
+}
+
+///|
 pub fn parse(tokens : Array[@lexer.Token]) -> Result[Query, String] {
   if tokens.length() == 0 {
     return Err("empty token stream")
@@ -119,70 +247,14 @@ pub fn parse(tokens : Array[@lexer.Token]) -> Result[Query, String] {
   if index < tokens.length() {
     match tokens[index] {
       @lexer.Token::Where => {
-        index = index + 1
-        if index >= tokens.length() {
-          return Err("expected filter field")
-        }
-        let field = match tokens[index] {
-          @lexer.Token::Identifier(name) => {
-            index = index + 1
-            name
+        let result = parse_or_expression(tokens, index + 1)
+        match result {
+          Ok((expr, next)) => {
+            filter = Some(expr)
+            index = next
           }
-          _ => return Err("expected filter field")
+          Err(message) => return Err(message)
         }
-        if index >= tokens.length() {
-          return Err("expected comparison operator")
-        }
-        let operator = tokens[index]
-        if !is_filter_operator(operator) {
-          return Err("expected comparison operator")
-        }
-        index = index + 1
-        if index >= tokens.length() {
-          return Err("expected filter value")
-        }
-        let value_token = tokens[index]
-        index = index + 1
-        let expr = match operator {
-          @lexer.Token::GT
-          | @lexer.Token::GE
-          | @lexer.Token::LT
-          | @lexer.Token::LE =>
-            match value_token {
-              @lexer.Token::Number(value) =>
-                match numeric_expr(operator, field, value) {
-                  Some(expr) => expr
-                  None => return Err("expected comparison operator")
-                }
-              _ => return Err("expected filter number")
-            }
-          @lexer.Token::EQ | @lexer.Token::NE =>
-            match value_token {
-              @lexer.Token::Number(value) =>
-                match numeric_expr(operator, field, value) {
-                  Some(expr) => expr
-                  None => return Err("expected comparison operator")
-                }
-              @lexer.Token::StringLit(value) =>
-                match string_equality_expr(operator, field, value) {
-                  Some(expr) => expr
-                  None => return Err("expected comparison operator")
-                }
-              _ => return Err("expected filter number or string")
-            }
-          @lexer.Token::Contains =>
-            match value_token {
-              @lexer.Token::StringLit(value) => Contains(field, value)
-              _ => return Err("expected filter string")
-            }
-          @lexer.Token::StartsWith =>
-            match value_token {
-              @lexer.Token::StringLit(value) => StartsWith(field, value)
-              _ => return Err("expected filter string")
-            }
-          _ => return Err("expected comparison operator")
-        }
-        filter = Some(expr)
       }
       _ => ()
     }

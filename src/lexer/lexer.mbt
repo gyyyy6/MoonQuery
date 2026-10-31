@@ -3,6 +3,8 @@ pub(all) enum Token {
   Select
   Where
   Limit
+  And
+  Or
   Contains
   StartsWith
   Identifier(String)
@@ -163,6 +165,8 @@ pub fn tokenize(input : String) -> Array[Token] {
         "select" => tokens.push(Select)
         "where" => tokens.push(Where)
         "limit" => tokens.push(Limit)
+        "and" => tokens.push(And)
+        "or" => tokens.push(Or)
         "contains" => tokens.push(Contains)
         "startswith" => tokens.push(StartsWith)
         _ => tokens.push(Identifier(word))

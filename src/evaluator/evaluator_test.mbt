@@ -301,3 +301,65 @@ test "run_query reports string literal and operand errors" {
     "{\"error\":\"expected filter string\"}",
   )
 }
+
+///|
+test "run_query supports AND" {
+  assert_eq(
+    @evaluator.run_query(
+      user_data, "select name where age > 30 and city == \"Shanghai\"",
+    ),
+    "[{\"name\":\"Bob\"}]",
+  )
+}
+
+///|
+test "run_query supports OR" {
+  assert_eq(
+    @evaluator.run_query(
+      user_data, "select name where city == \"Beijing\" or city == \"Shenzhen\"",
+    ),
+    "[{\"name\":\"Alice\"},{\"name\":\"Carol\"}]",
+  )
+}
+
+///|
+test "run_query applies AND before OR" {
+  assert_eq(
+    @evaluator.run_query(
+      user_data, "select name where age > 40 and city == \"Beijing\" or name == \"Dave\"",
+    ),
+    "[{\"name\":\"Dave\"}]",
+  )
+  assert_eq(
+    @evaluator.run_query(
+      user_data, "select name where age > 30 and city == \"Shanghai\" or name == \"Dave\"",
+    ),
+    "[{\"name\":\"Bob\"},{\"name\":\"Dave\"}]",
+  )
+}
+
+///|
+test "run_query handles missing fields in logical expressions" {
+  // A false left operand makes the whole AND false.
+  assert_eq(
+    @evaluator.run_query(
+      user_data, "select name where age > 100 and city == \"Nowhere\"",
+    ),
+    "[]",
+  )
+  // A false left operand cannot make the AND true even if the right side
+  // would match other records.
+  assert_eq(
+    @evaluator.run_query(
+      user_data, "select name where missing == 1 and age > 18",
+    ),
+    "[]",
+  )
+  // A true left operand is enough for OR; the missing right field is harmless.
+  assert_eq(
+    @evaluator.run_query(
+      user_data, "select name where name == \"Alice\" or missing == 1",
+    ),
+    "[{\"name\":\"Alice\"}]",
+  )
+}
