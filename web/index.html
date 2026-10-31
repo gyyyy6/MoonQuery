@@ -233,7 +233,7 @@
       <h1>MoonQuery <span class="accent">Web Playground</span></h1>
       <p class="sub">
         一个用 MoonBit 从零实现的查询引擎：<b>Lexer → Parser → Evaluator</b>，编译成 Wasm/JS 后直接在浏览器里运行。
-        支持 <code>select &lt;fields|*&gt;</code>、<code>where &lt;field&gt; &gt; &lt;number&gt;</code>、<code>limit &lt;n&gt;</code>；返回的 <code>{"error": ...}</code> 会标红显示。
+        支持 <code>select &lt;fields|path&gt;</code>、数值 / 字符串比较、<code>contains</code> / <code>startsWith</code>、<code>and</code> / <code>or</code>、<code>address.city</code> 嵌套路径与 <code>limit</code>；返回的 <code>{"error": ...}</code> 会标红显示。
       </p>
     </header>
 
@@ -282,21 +282,22 @@
     const $ = (id) => document.getElementById(id);
 
     const EXAMPLE_DATA = [
-      { name: "Alice", age: 30, city: "Beijing" },
-      { name: "Bob", age: 35, city: "Shanghai" },
-      { name: "Carol", age: 42, city: "Shenzhen" },
-      { name: "Dave", age: 18, city: "Chengdu" },
-      { name: "Eve", city: "Wuhan" },
-      { name: "Frank", age: 27, city: "Hangzhou" },
+      { name: "Alice", age: 30, city: "Beijing", profile: { address: { city: "Beijing", zip: "100000" }, score: 95 } },
+      { name: "Bob", age: 35, city: "Shanghai", profile: { address: { city: "Shanghai", zip: "200000" }, score: 88 } },
+      { name: "Carol", age: 42, city: "Shenzhen", profile: { address: { city: "Shenzhen", zip: "518000" }, score: 99 } },
+      { name: "Dave", age: 18, city: "Chengdu", profile: { address: { city: "Chengdu", zip: "610000" }, score: 60 } },
+      { name: "Eve", city: "Wuhan", profile: { address: { city: "Wuhan", zip: "430000" } } },
+      { name: "Frank", age: 27, city: "Hangzhou", profile: { address: { city: "Hangzhou", zip: "310000" }, score: 72 } },
     ];
 
     const EXAMPLE_QUERIES = [
       "select *",
       "select name, age where age > 30",
+      "select name where age > 30 and city == \"Shanghai\" or name == \"Dave\"",
+      "select name where name startsWith \"A\" or city contains \"jing\"",
+      "select name, profile.address.city where profile.address.city == \"Beijing\"",
       "select name, city where age > 30 limit 2",
-      "select name where age > 40",
       "select * limit 3",
-      "select name, city where age > 25 limit 3",
       "select where",
     ];
 

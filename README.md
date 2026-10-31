@@ -7,7 +7,7 @@
 给它一段 JSON 数组和一句类 SQL 查询，它返回过滤 + 投影后的 JSON。
 `Lexer → Parser → Evaluator → FFI → Web` 全链路由 MoonBit 从零实现，编译后直接在浏览器里运行。
 
-![tests](https://img.shields.io/badge/tests-13%2F13%20passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-77%2F77%20passing-brightgreen)
 ![target](https://img.shields.io/badge/target-wasm%20%7C%20wasm--gc%20%7C%20js-blueviolet)
 ![license](https://img.shields.io/badge/license-Apache--2.0-blue)
 
@@ -22,6 +22,7 @@
 ## ✨ 这是什么
 
 MoonQuery 是一个跑在前端的轻量级 JSON 查询引擎：**输入 JSON 数组 + 查询语句，输出结果 JSON**，零后端、零运行时依赖、零 glue code。
+支持数值 / 字符串比较、`contains` / `startsWith`、`and` / `or` 短路逻辑，以及 `profile.address.city` 这样的点号嵌套路径。
 
 ```text
   输入   [{ "name": "Alice", "age": 30 }, { "name": "Bob", "age": 35 }]
@@ -33,9 +34,31 @@ MoonQuery 是一个跑在前端的轻量级 JSON 查询引擎：**输入 JSON �
 
 | 子句 | 说明 | 示例 |
 | --- | --- | --- |
-| `select <fields>` / `select *` | 投影字段，`*` 表示保留整条记录 | `select name, age` / `select *` |
-| `where <field> > <number>` | 数值过滤；字段缺失或不是数字的记录会被静默丢弃 | `where age > 30` |
+| `select <field|path>[, ...]` / `select *` | 投影字段；点号路径会保留嵌套结构，`*` 表示保留整条记录 | `select name, profile.address.city` / `select *` |
+| `where <field|path> <op> <value>` | 过滤；字段 / 路径缺失或类型不符的记录会被静默丢弃 | `where age >= 30` / `where profile.address.city == "Beijing"` |
 | `limit <n>` | 只保留前 N 条（越界自动截断） | `limit 2` |
+
+### 比较与字符串匹配
+
+| 运算符 | 适用类型 | 示例 |
+| --- | --- | --- |
+| `>` `>=` `<` `<=` `==` `!=` | 数值 | `age >= 18`、`score != 60` |
+| `==` `!=` | 字符串 | `city == "Beijing"` |
+| `contains` | 字符串 | `name contains "li"` |
+| `startsWith` | 字符串 | `name startsWith "Al"` |
+
+### 逻辑运算与嵌套字段
+
+- `and` 的优先级高于 `or`，可以连续组合多个条件；关键字大小写不敏感。
+- 求值采用短路逻辑：`and` 左侧为 `false` 时跳过右侧，`or` 左侧为 `true` 时跳过右侧。
+- 字段支持点号路径，例如 `profile.address.city`。路径中间缺失、中间层不是对象、或叶子类型不匹配时，该记录不满足条件。
+- 投影同样支持点号路径并保留嵌套结构：`select profile.address.city` 输出 `{"profile":{"address":{"city":"..."}}}`。
+
+```text
+select name, profile.address.city
+where age > 18 and name startsWith "A" or profile.address.city == "Beijing"
+limit 2
+```
 
 子句顺序固定为 `select ... [where ...] [limit ...]`；非法查询、非法 JSON、顶层不是数组这几种情况统一返回 `{"error": "..."}`，不抛异常。
 
@@ -78,17 +101,20 @@ moon test -p evaluator    # 只跑求值器
 
 ### 2. 命令行（CLI）
 
-```bash
-moon run src/main -- "select name, age where age > 30 limit 2"
-moon run src/main -- "select name, city" "[{\"name\":\"Bob\",\"age\":35}]"
-moon run src/main -- --query "select *" --json "[{\"a\":1,\"b\":2}]"
+```powershell
+moon run src/main -- 'select name, age where age > 30 limit 2'
+moon run src/main -- 'select name where age > 30 and city == \"Shanghai\" or name == \"Dave\"'
+moon run src/main -- 'select name, profile.address.city where profile.address.city == \"Beijing\"'
+moon run src/main -- 'select name where name startsWith \"A\" or city contains \"jing\"'
+moon run src/main -- --query 'select *' --json '[{\"a\":1,\"b\":2}]'
 moon run src/main -- --help
 ```
 
-不传 JSON 时使用内置示例数据集。Windows PowerShell 5.1 下，内联 JSON 里的双引号要写成 `\"`（外层用单引号包住整个参数）：
+不传 JSON 时使用内置示例数据集。Windows PowerShell 5.1 把参数转交给原生程序时会吃掉内层双引号，因此查询里的字符串字面量和内联 JSON 中的双引号都要写成 `\"`，并用单引号包住整个参数：
 
 ```powershell
-moon run src/main -- "select name where age > 30" '[{\"name\":\"Bob\",\"age\":35}]'
+moon run src/main -- 'select name where profile.address.city == \"Beijing\"'
+moon run src/main -- 'select name, city' '[{\"name\":\"Bob\",\"age\":35,\"city\":\"Shanghai\"}]'
 ```
 
 ### 3. Web Playground
@@ -135,11 +161,11 @@ python -m http.server 8080                    # 或 npx --yes serve web
 
 ```text
 $ moon test
-Total tests: 13, passed: 13, failed: 0.
+Total tests: 77, passed: 77, failed: 0.
 
-lexer       1   tokenize "select name, age where age > 18"
-parser      1   parse "select name, age where age > 18 limit 10"
-evaluator  11   filter / limit / 字段投影 / select * / 缺失字段 / 非法查询 / 非法 JSON / 非数组文档 / limit 0 与空输入
+lexer      14   关键字 / 比较符 / 字符串 / 小数点 / 点号
+parser     27   优先级 / 嵌套路径 / 投影 / 非法输入
+evaluator  36   数值 / 字符串 / 逻辑 / 嵌套 / 投影 / 错误路径
 ```
 
 除单元测试外，还用无头 Chromium 真实渲染了 Playground 页面（`file://` 与 HTTP 两种加载方式），确认没有任何 console / page error，并分别校验了「正常结果」与「错误标红」两种状态。
@@ -173,7 +199,8 @@ MoonQuery/
 ## 💡 实现要点
 
 - **手写词法器 + 递归下降解析器**：不依赖任何 parser generator，数字、标识符、关键字都是逐字符推进。
-- **求值是纯函数**：`execute` 依次做 filter → limit → project，不修改输入数据；字段缺失或类型不符的记录直接丢弃，不会 panic。
+- **嵌套路径与短路求值**：`profile.address.city` 在 AST 中保存为路径数组，求值时逐层下钻；`and` / `or` 短路，路径缺失或类型不符直接不匹配。
+- **求值是纯函数**：`execute` 依次做 filter → limit → project，不修改输入数据；嵌套投影在复制出的对象上合并，字段缺失或类型不符的记录直接丢弃，不会 panic。
 - **官方导出方式**：`#export_name` 必须搭配 `pkgtype(kind: "foreign_library")`，且该属性不会跨包生效，因此单独用 `src/ffi` 包做了一层 wrapper。
 - **一份代码三种产物**：同一个 `src/ffi` 包可分别产出 `js`（ESM）、`wasm-gc`、`wasm`，网页端只需纯 JS。
 - **`run_query` 永不抛异常**：所有失败路径统一成 `{"error": "..."}` 文档，前端只需判断返回体。

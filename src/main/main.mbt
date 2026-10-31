@@ -3,11 +3,11 @@
 /// `moon run src/main -- "select name where age > 30"` works out of the box.
 let demo_data : String =
   #|[
-  #|  { "name": "Alice", "age": 30, "city": "Beijing" },
-  #|  { "name": "Bob", "age": 35, "city": "Shanghai" },
-  #|  { "name": "Carol", "age": 42, "city": "Shenzhen" },
-  #|  { "name": "Dave", "age": 18, "city": "Chengdu" },
-  #|  { "name": "Eve", "city": "Wuhan" }
+  #|  { "name": "Alice", "age": 30, "city": "Beijing", "profile": { "address": { "city": "Beijing", "zip": "100000" }, "score": 95 } },
+  #|  { "name": "Bob", "age": 35, "city": "Shanghai", "profile": { "address": { "city": "Shanghai", "zip": "200000" }, "score": 88 } },
+  #|  { "name": "Carol", "age": 42, "city": "Shenzhen", "profile": { "address": { "city": "Shenzhen", "zip": "518000" }, "score": 99 } },
+  #|  { "name": "Dave", "age": 18, "city": "Chengdu", "profile": { "address": { "city": "Chengdu", "zip": "610000" }, "score": 60 } },
+  #|  { "name": "Eve", "city": "Wuhan", "profile": { "address": { "city": "Wuhan", "zip": "430000" } } }
   #|]
 
 ///|
@@ -21,7 +21,19 @@ let usage_text : String =
   #|
   #|Arguments:
   #|  <query>  Query, e.g. "select name, age where age > 30 limit 2".
-  #|           Supported: `select <fields|*>`, `where <field> > <number>`, `limit <n>`.
+  #|           Supported syntax:
+  #|             select <field|path>[, ...] | select *
+  #|             where <field|path> <op> <value>
+  #|             limit <n>
+  #|           Operators:
+  #|             > >= < <= == !=     numeric comparisons
+  #|             == !=               string equality / inequality
+  #|             contains            substring match
+  #|             startsWith          prefix match
+  #|           Logic:
+  #|             and                 higher precedence
+  #|             or                  lower precedence, short-circuits
+  #|           Nested fields use dot notation, e.g. profile.address.city.
   #|  [json]   JSON array to query. Defaults to the built-in demo dataset.
   #|
   #|Options:
@@ -34,30 +46,42 @@ let usage_text : String =
   #|  # 1) Scan the built-in demo dataset
   #|  moon run src/main -- "select *"
   #|
-  #|  # 2) Filter + limit; records without a numeric age are dropped
-  #|  moon run src/main -- "select name, age where age > 30 limit 2"
+  #|  # 2) Numeric comparison + limit; records without a numeric age are dropped
+  #|  moon run src/main -- "select name, age where age >= 35 limit 2"
   #|  #   -> [{"name":"Bob","age":35},{"name":"Carol","age":42}]
   #|
-  #|  # 3) Query an inline JSON array
-  #|  moon run src/main -- "select name, city" "[{"name":"Bob","age":35,"city":"Shanghai"}]"
+  #|  # 3) String equality and matching
+  #|  moon run src/main -- 'select name where city == \"Beijing\"'
+  #|  moon run src/main -- 'select name where name startsWith \"A\" or city contains \"jing\"'
+  #|
+  #|  # 4) AND / OR; and binds tighter than or
+  #|  moon run src/main -- 'select name where age > 30 and city == \"Shanghai\" or name == \"Dave\"'
+  #|  #   -> [{"name":"Bob"},{"name":"Dave"}]
+  #|
+  #|  # 5) Nested fields; projection keeps the nested shape
+  #|  moon run src/main -- 'select name, profile.address.city where profile.address.city == \"Beijing\"'
+  #|  #   -> [{"name":"Alice","profile":{"address":{"city":"Beijing"}}}]
+  #|
+  #|  # 6) Query an inline JSON array (PowerShell)
+  #|  moon run src/main -- 'select name, city' '[{\"name\":\"Bob\",\"age\":35,\"city\":\"Shanghai\"}]'
   #|  #   -> [{"name":"Bob","city":"Shanghai"}]
   #|
-  #|  # 4) Flags instead of positional arguments
-  #|  moon run src/main -- --query "select * limit 1" --json "[{"a":1,"b":2}]"
+  #|  # 7) Flags instead of positional arguments
+  #|  moon run src/main -- --query 'select * limit 1' --json '[{\"a\":1,\"b\":2}]'
   #|  #   -> [{"a":1,"b":2}]
   #|
-  #|  # 5) JSON omitted -> the built-in demo dataset is used
+  #|  # 8) JSON omitted -> the built-in demo dataset is used
   #|  moon run src/main -- "select name where age > 40"
   #|  #   -> [{"name":"Carol"}]
   #|
-  #|  # 6) Errors never panic, they come back as a JSON document
+  #|  # 9) Errors never panic, they come back as a JSON document
   #|  moon run src/main -- "select where"
   #|  #   -> {"error":"expected field name"}
   #|
-  #|  # 7) Projection: * keeps every field of each record
+  #|  # 10) Projection: * keeps every field of each record
   #|  moon run src/main -- "select * limit 1"
   #|
-  #|  # 8) Help
+  #|  # 11) Help
   #|  moon run src/main -- --help
 
 ///|
